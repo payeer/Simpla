@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<module>
+	<name>
+		Payeer
+	</name>
+	<settings>
+		<variable>payeer_order_status</variable>
+		<name>The status of orders after payment:</name>
+		<options>
+			<name>new</name>
+			<value>0</value>
+		</options>
+		<options>
+			<name>adopted</name>
+			<value>1</value>
+		</options>
+		<options>
+			<name>made</name>
+			<value>2</value>
+		</options>
+		<options>
+			<name>removed</name>
+			<value>3</value>
+		</options>
+	</settings>
+	<settings>
+		<variable>payeer_merchanturl</variable>
+		<name>URL merchant (specify //payeer.com/merchant/):</name>
+	</settings>
+	<settings>
+		<variable>payeer_merchantid</variable>
+		<name>The store ID in the system Payeer.com:</name>
+	</settings>
+	<settings>
+		<variable>payeer_secret</variable>
+		<name>Secret key:</name>
+	</settings>
+	<settings>
+		<variable>payeer_ip_list</variable>
+		<name>IP Filter: (If not specified, the payments are accepted from any server, you can also specify multiple addresses with a comma. If desired, use a mask)</name>
+	</settings>
+	<settings>
+		<variable>payeer_email</variable>
+		<name>Email for alerts</name>
+	</settings>
+	<settings>
+		<variable>payeer_log</variable>
+		<name>Log: (log in the root folder of your domain payeer_log.txt)</name>
+		<options>
+			<name>No</name>
+			<value>0</value>
+		</options>
+		<options>
+			<name>Yes</name>
+			<value>1</value>
+		</options>
+	</settings>
+	
+</module>
