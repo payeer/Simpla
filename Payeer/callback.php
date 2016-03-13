@@ -1,12 +1,13 @@
 <?php
+chdir ('../../');
+require_once('api/Simpla.php');
+
 if (isset($_POST["m_operation_id"]) && isset($_POST["m_sign"]))
-{				
-	chdir ('../../');
-	require_once('api/Simpla.php');
+{
+	// загрузка заказа
+	
 	$simpla = new Simpla();
-	
 	$order_id = $_POST['m_orderid'];
-	
 	$order = $simpla->orders->get_order(intval($order_id));
 	
 	if(!empty($order))
@@ -15,10 +16,37 @@ if (isset($_POST["m_operation_id"]) && isset($_POST["m_sign"]))
 		
 		if(!empty($method))
 		{
+			$err = false;
+			$message = '';
 			$settings = unserialize($method->settings);
+			
+			// запись логов
+			
+			$log_text = 
+			"--------------------------------------------------------\n" .
+			"operation id		" . $_POST['m_operation_id'] . "\n" .
+			"operation ps		" . $_POST['m_operation_ps'] . "\n" .
+			"operation date		" . $_POST['m_operation_date'] . "\n" .
+			"operation pay date	" . $_POST['m_operation_pay_date'] . "\n" .
+			"shop				" . $_POST['m_shop'] . "\n" .
+			"order id			" . $_POST['m_orderid'] . "\n" .
+			"amount				" . $_POST['m_amount'] . "\n" .
+			"currency			" . $_POST['m_curr'] . "\n" .
+			"description		" . base64_decode($_POST['m_desc']) . "\n" .
+			"status				" . $_POST['m_status'] . "\n" .
+			"sign				" . $_POST['m_sign'] . "\n\n";
+			
+			$log_file = $settings['payeer_log'];
+			
+			if (!empty($log_file))
+			{
+				file_put_contents($_SERVER['DOCUMENT_ROOT'] . $log_file, $log_text, FILE_APPEND);
+			}
+			
+			// проверка цифровой подписи и ip
 
-			$m_key = $settings['payeer_secret'];
-			$arHash = array($_POST['m_operation_id'],
+			$sign_hash = strtoupper(hash('sha256', implode(":", array(
+				$_POST['m_operation_id'],
 				$_POST['m_operation_ps'],
 				$_POST['m_operation_date'],
 				$_POST['m_operation_pay_date'],
@@ -28,103 +56,90 @@ if (isset($_POST["m_operation_id"]) && isset($_POST["m_sign"]))
 				$_POST['m_curr'],
 				$_POST['m_desc'],
 				$_POST['m_status'],
-				$m_key);
-			$sign_hash = strtoupper(hash('sha256', implode(":", $arHash)));
-		
-			// проверка принадлежности ip списку доверенных ip
-			$list_ip_str = str_replace(' ', '', $settings['payeer_ip_list']);
+				$settings['payeer_secret']
+			))));
 			
-			if ($list_ip_str != '') 
+			$valid_ip = true;
+			$sIP = str_replace(' ', '', $settings['payeer_ip_list']);
+			
+			if (!empty($sIP))
 			{
-				$list_ip = explode(',', $list_ip_str);
-				$this_ip = $_SERVER['REMOTE_ADDR'];
-				$this_ip_field = explode('.', $this_ip);
-				$list_ip_field = array();
-				$i = 0;
-				$valid_ip = FALSE;
-				foreach ($list_ip as $ip)
+				$arrIP = explode('.', $_SERVER['REMOTE_ADDR']);
+				if (!preg_match('/(^|,)(' . $arrIP[0] . '|\*{1})(\.)' .
+				'(' . $arrIP[1] . '|\*{1})(\.)' .
+				'(' . $arrIP[2] . '|\*{1})(\.)' .
+				'(' . $arrIP[3] . '|\*{1})($|,)/', $sIP))
 				{
-					$ip_field[$i] = explode('.', $ip);
-					if ((($this_ip_field[0] ==  $ip_field[$i][0]) or ($ip_field[$i][0] == '*')) and
-						(($this_ip_field[1] ==  $ip_field[$i][1]) or ($ip_field[$i][1] == '*')) and
-						(($this_ip_field[2] ==  $ip_field[$i][2]) or ($ip_field[$i][2] == '*')) and
-						(($this_ip_field[3] ==  $ip_field[$i][3]) or ($ip_field[$i][3] == '*')))
-						{
-							$valid_ip = TRUE;
-							break;
-						}
-					$i++;
+					$valid_ip = false;
 				}
 			}
-			else
+			
+			if (!$valid_ip)
 			{
-				$valid_ip = TRUE;
+				$message .= " - ip-адрес сервера не является доверенным\n" .
+				"   доверенные ip: " . $sIP . "\n" .
+				"   ip текущего сервера: " . $_SERVER['REMOTE_ADDR'] . "\n";
+				$err = true;
 			}
-			
-			// запись в логи если требуется
-			$log_text = 
-				"--------------------------------------------------------\n".
-				"operation id		" . $_POST["m_operation_id"] . "\n".
-				"operation ps		" . $_POST["m_operation_ps"] . "\n".
-				"operation date		" . $_POST["m_operation_date"] . "\n".
-				"operation pay date	" . $_POST["m_operation_pay_date"] . "\n".
-				"shop				" . $_POST["m_shop"] . "\n".
-				"order id			" . $_POST["m_orderid"] . "\n".
-				"amount				" . $_POST["m_amount"] . "\n".
-				"currency			" . $_POST["m_curr"] . "\n".
-				"description		" . base64_decode($_POST["m_desc"]) . "\n".
-				"status				" . $_POST["m_status"] . "\n".
-				"sign				" . $_POST["m_sign"] . "\n\n";
-			
-			if (!empty($settings['payeer_log']))
-			{
-				file_put_contents($_SERVER['DOCUMENT_ROOT'] . $settings['payeer_log'], $log_text, FILE_APPEND);
-			}
-			
-			if ($_POST['m_sign'] == $sign_hash && $_POST['m_status'] == 'success' && $valid_ip)
-			{
-				$simpla->orders->update_order(intval($order_id),
-					array(
-					'paid' => 1,
-					'status' => $settings['payeer_order_status']
-				));
 
-				// Отправим уведомление на email
-				$simpla->notify->email_order_user(intval($order_id));
-				
-				// Спишем товары  
-				$simpla->orders->close(intval($order_id));
-				
-				exit ($_POST['m_orderid'] . '|success');
+			if ($_POST['m_sign'] != $sign_hash)
+			{
+				$message .= " - не совпадают цифровые подписи\n";
+				$err = true;
 			}
-			else
+			
+			if (!$err)
+			{
+				// проверка суммы
+				
+				if ($_POST['m_amount'] != $order->total_price)
+				{
+					$message .= " - неправильная сумма\n";
+					$err = true;
+				}
+				
+				// проверка статуса
+				
+				if (!$err)
+				{
+					switch ($_POST['m_status'])
+					{
+						case 'success':
+							$simpla->orders->update_order(intval($order_id),
+								array(
+								'paid' => 1,
+								'status' => $settings['payeer_order_status']
+							));
+							
+							$simpla->notify->email_order_user(intval($order_id));
+							$simpla->orders->close(intval($order_id));
+							break;
+							
+						default:
+							$message .= " - статус платежа не является success\n";
+							$err = true;
+							break;
+					}
+				}
+			}
+			
+			if ($err)
 			{
 				$to = $settings['payeer_email'];
-				$subject = "Ошибка оплаты";
-				$message = "Не удалось провести платёж через систему Payeer по следующим причинам:\n\n";
-		
-				if ($_POST["m_sign"] != $sign_hash)
+
+				if (!empty($to))
 				{
-					$message .= " - Не совпадают цифровые подписи\n";
+					$message = "Не удалось провести платёж через систему Payeer по следующим причинам:\n\n" . $message . "\n" . $log_text;
+					$headers = "From: no-reply@" . $_SERVER['HTTP_HOST'] . "\r\n" . 
+					"Content-type: text/plain; charset=utf-8 \r\n";
+					mail($to, 'Ошибка оплаты', $message, $headers);
 				}
 				
-				if ($_POST['m_status'] != "success")
-				{
-					$message .= " - Cтатус платежа не является success\n";
-				}
-				
-				if (!$valid_ip)
-				{
-					$message .= " - ip-адрес сервера не является доверенным\n";
-					$message .= "   доверенные ip: " . $settings['payeer_ip_list'] . "\n";
-					$message .= "   ip текущего сервера: " . $_SERVER['REMOTE_ADDR'] . "\n";
-				}
-				
-				$message .= "\n" . $log_text;
-				$headers = "From: no-reply@" . $_SERVER['HTTP_SERVER'] . "\r\nContent-type: text/plain; charset=utf-8 \r\n";
-				mail($to, $subject, $message, $headers);
-				
-				exit ($_POST['m_orderid'] . '|error');
+				exit($order_id . '|error');
+			}
+			else
+			{
+				exit($order_id . '|success');
 			}
 		}
 	}

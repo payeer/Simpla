@@ -1,7 +1,6 @@
 ﻿<?php
-
 require_once('api/Simpla.php');
-		
+
 class Payeer extends Simpla
 {	
 	public function checkout_form($order_id, $button_text = null)
@@ -15,21 +14,13 @@ class Payeer extends Simpla
 		$payment_method = $this->payment->get_payment_method($order->payment_method_id);
 		$payment_currency = $this->money->get_currency(intval($payment_method->currency_id));
 		$settings = $this->payment->get_payment_settings($payment_method->id);	
-		
-		$currency = $payment_currency->code;
-		
-		if ($currency == 'RUR')
-		{
-			$currency = 'RUB';
-		}
-		
+
 		$m_url = $settings['payeer_merchanturl'];
 		$m_shop = $settings['payeer_merchantid'];
 		$m_orderid = $order->id;
 		$m_amount = number_format($order->total_price, 2, '.', '');
-		$m_curr = $currency;
-		$m_desc = base64_encode($settings['payeer_order_desc']);
-		$m_key = $settings['payeer_secret'];
+		$m_curr = $payment_currency->code == 'RUR' ? 'RUB' : $payment_currency->code;
+		$m_desc = base64_encode($order->comment);
 
 		$arHash = array(
 			$m_shop,
@@ -37,12 +28,12 @@ class Payeer extends Simpla
 			$m_amount,
 			$m_curr,
 			$m_desc,
-			$m_key
+			$settings['payeer_secret']
 		);
 		
 		$sign = strtoupper(hash('sha256', implode(":", $arHash)));
 		
-		$button =	'
+		$button = '
 		<form method="GET" action="' . $m_url . '">
 			<input type="hidden" name="m_shop" value="' . $m_shop . '">
 			<input type="hidden" name="m_orderid" value="' . $m_orderid . '">
@@ -56,3 +47,4 @@ class Payeer extends Simpla
 		return $button;
 	}
 }
+?>
