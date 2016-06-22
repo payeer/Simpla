@@ -25,19 +25,15 @@
 	</settings>
 	<settings>
 		<variable>payeer_merchanturl</variable>
-		<name>URL мерчанта (укажите //payeer.com/merchant/):</name>
+		<name>URL мерчанта (укажите https://payeer.com/merchant/):</name>
 	</settings>
 	<settings>
 		<variable>payeer_merchantid</variable>
-		<name>Идентификатор магазина в системе Payeer.com:</name>
+		<name>Идентификатор магазина:</name>
 	</settings>
 	<settings>
 		<variable>payeer_secret</variable>
 		<name>Секретный ключ:</name>
-	</settings>
-	<settings>
-		<variable>payeer_order_desc</variable>
-		<name>Комментарий к оплате для покупателя:</name>
 	</settings>
 	<settings>
 		<variable>payeer_ip_list</variable>
@@ -49,7 +45,6 @@
 	</settings>
 	<settings>
 		<variable>payeer_log</variable>
-		<name>Путь до файла для журнала оплат через Payeer (например, /payeer_orders.log)</name>
+		<name>Путь до журнала операций (например, /payeer_orders.log)</name>
 	</settings>
-	
 </module>
